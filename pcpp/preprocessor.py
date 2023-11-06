@@ -17,6 +17,9 @@ if __name__ == '__main__' and __package__ is None:
 from pcpp.parser import STRING_TYPES, default_lexer, trigraph, Macro, Action, OutputDirective, PreprocessorHooks
 from pcpp.evaluator import Evaluator
 
+from .path_yacc import pathparser
+
+
 # Some Python 3 compatibility shims
 if sys.version_info.major < 3:
     FILE_TYPES = file
@@ -669,6 +672,8 @@ class Preprocessor(PreprocessorHooks):
     def evalexpr(self,tokens):
         """Evaluate an expression token sequence for the purposes of evaluating
         integral expressions."""
+
+        
         if not tokens:
             self.on_error('unknown', 0, "Empty expression")
             return (0, None)
@@ -837,7 +842,12 @@ class Preprocessor(PreprocessorHooks):
                     break
             output_and_expand_line = True
             output_unexpanded_line = False
-            if tok.value == '#':
+
+            #print(tok)
+            #print(i)
+            #print(x)
+            #print(chunk)
+            if tok.value == '#' or tok.value == '-':
                 precedingtoks = [ tok ]
                 output_and_expand_line = False
                 try:
@@ -861,7 +871,6 @@ class Preprocessor(PreprocessorHooks):
                         name = ""
                         args = []
                         raise OutputDirective(Action.IgnoreAndRemove)
-                        
                     if name == 'define':
                         at_front_of_file = False
                         if enable:
@@ -880,17 +889,42 @@ class Preprocessor(PreprocessorHooks):
                             if handling is None:
                                 for tok in x:
                                     yield tok
-                    elif name == 'include':
+                    elif name == 'include' or name == 'f':
                         if enable:
+                            #print(self.expand_macros(chunk))
                             for tok in self.expand_macros(chunk):
                                 yield tok
                             chunk = []
                             oldfile = self.macros['__FILE__'] if '__FILE__' in self.macros else None
-                            if args and args[0].value != '<' and args[0].type != self.t_STRING:
-                                args = self.tokenstrip(self.expand_macros(args))
-                            # print('***', ''.join([x.value for x in args]), file = sys.stderr)
-                            for tok in self.include(args, x):
+
+                            #print(args)
+
+                            #####################################
+                            # a hack.
+                            # -f xxx.f  ->  "xxx.f"
+                            #####################################
+                            value = ''
+                            for arg in args:
+                                #arg.type == 'CPP_ENV'
+                                value += arg.value
+                            value = "\"%s\"" % value
+                            from ply.lex import LexToken
+                            res = LexToken()
+                            res.type = self.t_STRING
+                            res.value = os.path.expandvars(value)
+                            res.lineno = args[0].lineno
+                            res.lexpos = args[0].lexpos
+
+
+                            #if args and args[0].value != '<' and args[0].type != self.t_STRING:
+                            #    args = self.tokenstrip(self.expand_macros(args))
+                            #print('***', ''.join([x.value for x in args]), file = sys.stderr)
+                            #print(list(self.include(args, x)))
+                            
+                            for tok in self.include([res], x):
                                 yield tok
+                            
+
                             if oldfile is not None:
                                 self.macros['__FILE__'] = oldfile
                             self.source = abssource
@@ -1040,6 +1074,7 @@ class Preprocessor(PreprocessorHooks):
                             self.include_once[self.source] = None
                     elif enable:
                         # Unknown preprocessor directive
+
                         output_unexpanded_line = (self.on_directive_unknown(dirtokens[0], args, ifpassthru, precedingtoks) is None)
 
                 except OutputDirective as e:
@@ -1057,13 +1092,37 @@ class Preprocessor(PreprocessorHooks):
                     print("%d:%d:%d %s:%d Determined that #include \"%s\" is not entirely wrapped in an include guard macro, disabling auto-applying #pragma once" % (enable, iftrigger, ifpassthru, x[0].source, x[0].lineno, self.source), file = self.debugout)
                 
             if output_and_expand_line or output_unexpanded_line:
+
                 if not all_whitespace:
                     at_front_of_file = False
-
+                
                 # Normal text
+
+                ###########################################
+                # a hack.
+                ###########################################
+
+                def expand_path(x):
+                    s = ''.join([t.value for t in x])
+                
+                    ast = pathparser.parse(s)
+                    value = ''
+                    for element in ast:
+                        value += element
+                    from ply.lex import LexToken
+                    res = LexToken()
+                    res.type = 'CPP_PATH'
+                    res.value = value
+                    res.lineno = 0 #args[0].lineno
+                    res.lexpos = 0 #args[0].lexpos
+                    return res
+                
+                x = [expand_path(x)]
+
                 if enable:
                     if output_and_expand_line:
                         chunk.extend(x)
+
                     elif output_unexpanded_line:
                         for tok in self.expand_macros(chunk):
                             yield tok
@@ -1080,8 +1139,14 @@ class Preprocessor(PreprocessorHooks):
                             i += 1
                     chunk.extend(x)
 
+        #print(chunk)
+        #self.evaluator
+
+
         for tok in self.expand_macros(chunk):
+            #print(tok)
             yield tok
+        #print(chunk)
         chunk = []
         for i in ifstack:
             self.on_error(i.startlinetoks[0].source, i.startlinetoks[0].lineno, "Unterminated " + "".join([n.value for n in i.startlinetoks]))
@@ -1303,6 +1368,102 @@ class Preprocessor(PreprocessorHooks):
         except StopIteration:
             self.parser = None
             return None
+        
+    def analyze(self):
+        """Calls token() repeatedly, expanding tokens to their text and writing to the file like stream oh"""
+        res = ""
+        lastlineno = 0
+        lastsource = None
+        done = False
+        blanklines = 0
+        while not done:
+            emitlinedirective = False
+            toks = []
+            all_ws = True
+            # Accumulate a line
+            while not done:
+                tok = self.token()
+                if not tok:
+                    done = True
+                    break
+                toks.append(tok)
+                if tok.value and tok.value[0] == '\n':
+                    break
+                if tok.type not in self.t_WS:
+                    all_ws = False
+            if not toks:
+                break
+            if all_ws:
+                # Remove preceding whitespace so it becomes just a LF
+                if len(toks) > 1:
+                    tok = toks[-1]
+                    toks = [ tok ]
+                blanklines += toks[0].value.count('\n')
+                continue
+            # Filter out line continuations, collapsing before and after if needs be
+            for n in xrange(len(toks)-1, -1, -1):
+                if toks[n].type in self.t_LINECONT:
+                    if n > 0 and n < len(toks) - 2 and toks[n-1].type in self.t_WS and toks[n+1].type in self.t_WS:
+                        if toks[n-1].type not in self.t_LINECONT:
+                            toks[n-1].value = toks[n-1].value[0]
+                            del toks[n:n+2]
+                    else:
+                        del toks[n]
+            # The line in toks is not all whitespace
+            emitlinedirective = (blanklines > 6) and self.line_directive is not None
+            if hasattr(toks[0], 'source'):
+                if lastsource is None:
+                    if toks[0].source is not None:
+                        emitlinedirective = True
+                    lastsource = toks[0].source
+                elif lastsource != toks[0].source:
+                    emitlinedirective = True
+                    lastsource = toks[0].source
+            # Replace consecutive whitespace in output with a single space except at any indent
+            first_ws = None
+            #print(toks)
+            for n in xrange(len(toks)-1, -1, -1):
+                tok = toks[n]
+                if first_ws is None:
+                    if tok.type in self.t_SPACE or len(tok.value) == 0:
+                        first_ws = n
+                else:
+                    if tok.type not in self.t_SPACE and len(tok.value) > 0:
+                        m = n + 1
+                        while m != first_ws:
+                            del toks[m]
+                            first_ws -= 1
+                        first_ws = None
+                        if self.compress > 0:
+                            # Collapse a token of many whitespace into single
+                            if toks[m].value and toks[m].value[0] == ' ':
+                                toks[m].value = ' '
+            if not self.compress > 1 and not emitlinedirective:
+                newlinesneeded = toks[0].lineno - lastlineno - 1
+                if newlinesneeded > 6 and self.line_directive is not None:
+                    emitlinedirective = True
+                else:
+                    while newlinesneeded > 0:
+                        res += ('\n')
+                        #oh.write('\n')
+                        newlinesneeded -= 1
+            lastlineno = toks[0].lineno
+            # Account for those newlines in a multiline comment
+            if emitlinedirective and self.line_directive is not None:
+                res += (self.line_directive + ' ' + str(lastlineno) + ('' if lastsource is None else (' "' + lastsource + '"' )) + '\n')
+                #oh.write(self.line_directive + ' ' + str(lastlineno) + ('' if lastsource is None else (' "' + lastsource + '"' )) + '\n')
+            for tok in toks:
+                if tok.type == self.t_COMMENT1:
+                    lastlineno += tok.value.count('\n')
+            blanklines = 0
+            #print toks[0].lineno, 
+            for tok in toks:
+                #print tok.value,
+                res += (tok.value)
+                #oh.write(tok.value)
+            #print ''
+            return res
+
             
     def write(self, oh=sys.stdout):
         """Calls token() repeatedly, expanding tokens to their text and writing to the file like stream oh"""
