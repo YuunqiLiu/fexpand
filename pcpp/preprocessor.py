@@ -20,6 +20,21 @@ from pcpp.evaluator import Evaluator
 from .path_yacc import pathparser
 
 
+def expand_path(x):
+    s = ''.join([t.value for t in x])
+
+    ast = pathparser.parse(s)
+    value = ''
+    for element in ast:
+        value += element
+    from ply.lex import LexToken
+    res = LexToken()
+    res.type = 'CPP_PATH'
+    res.value = value
+    res.lineno = 0 #args[0].lineno
+    res.lexpos = 0 #args[0].lexpos
+    return res
+
 # Some Python 3 compatibility shims
 if sys.version_info.major < 3:
     FILE_TYPES = file
@@ -845,7 +860,6 @@ class Preprocessor(PreprocessorHooks):
 
             #print(tok)
             #print(i)
-            #print(x)
             #print(chunk)
             if tok.value == '#' or tok.value == '-':
                 precedingtoks = [ tok ]
@@ -1085,6 +1099,8 @@ class Preprocessor(PreprocessorHooks):
                     else:
                         assert False
 
+           # print('=======================')
+
             # If there is ever any non-whitespace output outside an include guard, auto pragma once is not possible
             if not skip_auto_pragma_once_possible_check and auto_pragma_once_possible and not ifstack and not all_whitespace:
                 auto_pragma_once_possible = False
@@ -1097,28 +1113,14 @@ class Preprocessor(PreprocessorHooks):
                     at_front_of_file = False
                 
                 # Normal text
+                #print(x)
 
                 ###########################################
                 # a hack.
                 ###########################################
 
-                def expand_path(x):
-                    s = ''.join([t.value for t in x])
-                
-                    ast = pathparser.parse(s)
-                    value = ''
-                    for element in ast:
-                        value += element
-                    from ply.lex import LexToken
-                    res = LexToken()
-                    res.type = 'CPP_PATH'
-                    res.value = value
-                    res.lineno = 0 #args[0].lineno
-                    res.lexpos = 0 #args[0].lexpos
-                    return res
                 
                 x = [expand_path(x)]
-
                 if enable:
                     if output_and_expand_line:
                         chunk.extend(x)
@@ -1141,10 +1143,9 @@ class Preprocessor(PreprocessorHooks):
 
         #print(chunk)
         #self.evaluator
-
-
+        ## a hack.
+        chunk = [c for c in chunk if c.value != '\n']
         for tok in self.expand_macros(chunk):
-            #print(tok)
             yield tok
         #print(chunk)
         chunk = []

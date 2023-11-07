@@ -2,7 +2,7 @@
 
 import ply.yacc as yacc 
 import ply.lex as lex
-
+import os
 # Get the token map from the lexer.  This is required.
 
 if __name__ == "__main__":
@@ -32,7 +32,8 @@ def p_expression_lst_append(p):
 
 def p_expression_basic(p):
     'expression : file_name'
-    p[0] = p[1]
+
+    p[0] = os.path.abspath(p[1])
 
 def p_file_name_merge(p):
     'file_name : file_name file_name'
@@ -44,8 +45,6 @@ def p_filename_init(p):
 
 def p_env_expand_(p):
     'file_name : CPP_ENV'
-    import os
-    #print('start to expand env %s' % p[1])
     p[0] = os.path.expandvars(p[1])
 
 def p_file_name_cpp_id(p):
@@ -59,6 +58,10 @@ def p_file_name_cpp_integer(p):
 def p_file_name_cpp_dot(p):
     'file_name : CPP_DOT'
     p[0] = p[1]
+
+def p_exp_plus_id_plus(p):
+    'expression : CPP_PLUS CPP_ID'
+    p[0] = p[1] + p[2]
 
 
 def p_error_process(p):
