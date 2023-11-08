@@ -126,6 +126,9 @@ t_CPP_FLOAT = r'((\d+)(\.\d+)(e(\+|-)?(\d+))?|(\d+)e(\+|-)?(\d+))([lL]|[fF])?'
 
 def t_CPP_ENV(t):
     r'\$[\{]*[a-zA-Z0-9_]+[\}]*'
+    t.value = t.value.replace('{','')
+    t.value = t.value.replace('$','')
+    t.value = t.value.replace('}','')
     return t
 
 # String literal

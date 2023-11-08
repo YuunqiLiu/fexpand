@@ -4,6 +4,7 @@ import ply.yacc as yacc
 import ply.lex as lex
 import os
 # Get the token map from the lexer.  This is required.
+from .path_record import *
 
 if __name__ == "__main__":
     from path_parser import *
@@ -26,41 +27,89 @@ def p_expression_lst_append(p):
     p[0] = p[1] + [p[2]]
 
 
-# def p_expression_plus(p):
-#     'file_name : file_name CPP_FSLASH file_name'
-#     p[0] = p[1]+ '/' + p[3]
 
 def p_expression_basic(p):
     'expression : file_name'
+    if os.path.exists(p[1].value):
+        abs_path = os.path.abspath(p[1].value)
 
-    p[0] = os.path.abspath(p[1])
+        p[1].file = PathRecord.CURRENT_FILE
+        if PathRecord.check_payload_path_duplicate(p[1]):
+            p[0] = ''
+        else:
+            p[0] = abs_path
+            PathRecord.PAYLOAD_PATH_LIST.append(p[1])
+    else:
+        print(f'[Warning] File {p[1].value} at {PathRecord.CURRENT_FILE}:{p[1].lineno} not exist, but pass through to output.')
+        p[0] = p[1].value
 
 def p_file_name_merge(p):
     'file_name : file_name file_name'
-    p[0] = p[1] + p[2] 
+    p[0] = LexToken()
+    p[0].type   = p[2].type
+    p[0].lineno = p[2].lineno
+    p[0].lexpos = 0
+    p[0].value  = p[1].value + p[2].value
+    #p[0] = p[1] + p[2] 
 
 def p_filename_init(p):
     'file_name : CPP_FSLASH'
-    p[0] = '/'
+    p[0] = LexToken()
+    p[0].type   = 'CPP_FSLASH'
+    p[0].lineno = p.lineno(1)
+    p[0].lexpos = 0
+    p[0].value  = p[1]
+    #p[0] = '/'
 
 def p_env_expand_(p):
     'file_name : CPP_ENV'
-    p[0] = os.path.expandvars(p[1])
+
+    p[0] = LexToken()
+    p[0].type   = 'CPP_ENV'
+    p[0].lineno = p.lineno(1)
+    p[0].lexpos = 0
+    p[0].value  = p[1]
+    
+    if not p[1] in os.environ:
+        print(f'Error at {PathRecord.CURRENT_FILE}:{p.lineno(1)}, ENV {p[1]} not exist.')
+        p[0].value = p[1]
+    else:
+        p[0].value = os.environ[p[1]]
+        
+
 
 def p_file_name_cpp_id(p):
     'file_name : CPP_ID'
-    p[0] = p[1]
+    p[0] = LexToken()
+    p[0].type   = 'CPP_ID'
+    p[0].lineno = p.lineno(1)
+    p[0].lexpos = 0
+    p[0].value  = p[1]
+    #p[0] = p[1]
 
 def p_file_name_cpp_integer(p):
     'file_name : CPP_INTEGER'
-    p[0] = p[1]
+    p[0] = LexToken()
+    p[0].type   = 'CPP_INTEGER'
+    p[0].lineno = p.lineno(1)
+    p[0].lexpos = 0
+    p[0].value  = p[1]
+    #p[0] = p[1]
 
 def p_file_name_cpp_dot(p):
     'file_name : CPP_DOT'
-    p[0] = p[1]
+    p[0] = LexToken()
+    p[0].type   = 'CPP_DOT'
+    p[0].lineno = p.lineno(1)
+    p[0].lexpos = 0
+    p[0].value  = p[1]
+
+    #p[0] = p[1]
 
 def p_exp_plus_id_plus(p):
-    'expression : CPP_PLUS CPP_ID'
+    '''expression : CPP_PLUS CPP_ID
+                  | CPP_MINUS CPP_ID
+    '''
     p[0] = p[1] + p[2]
 
 

@@ -709,6 +709,7 @@ class Evaluator(object):
         """Execute a fully macro expanded set of tokens representing an expression,
         returning the result of the evaluation.
         """
+        
         if not isinstance(input,list):
             self.lexer.input(input)
             input = []

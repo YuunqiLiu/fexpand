@@ -18,21 +18,62 @@ from pcpp.parser import STRING_TYPES, default_lexer, trigraph, Macro, Action, Ou
 from pcpp.evaluator import Evaluator
 
 from .path_yacc import pathparser
-
+from . import path_yacc
+from .path_record import *
 
 def expand_path(x):
+    #print(x)
     s = ''.join([t.value for t in x])
 
-    ast = pathparser.parse(s)
+
+    class __lexer(object):
+
+        def __init__(self, functions, identifiers):
+            self.__toks = []
+            self.__functions = functions
+            self.__identifiers = identifiers
+
+        def input(self, toks):
+            self.__toks = [tok for tok in toks ]
+            #self.__toks = [tok for tok in toks if tok.type != 'CPP_WS' and tok.type != 'CPP_LINECONT' and tok.type != 'CPP_COMMENT1' and tok.type != 'CPP_COMMENT2']
+            self.__idx = 0
+
+        def token(self):
+            if self.__idx >= len(self.__toks):
+                return None
+            self.__idx = self.__idx + 1
+            return self.__toks[self.__idx - 1]
+
+        def on_function_call(self, p):
+            if p[1] not in self.__functions:
+                raise SyntaxError('Unknown function %s' % p[1])
+            p[0] = Value(self.__functions[p[1]](p[3]))
+
+        def on_identifier(self, p):
+            if p[1] not in self.__identifiers:
+                raise SyntaxError('Unknown identifier %s' % p[1])
+            p[0] = Value(self.__identifiers[p[1]])
+            
+
+
+    ast = pathparser.parse(x,lexer=__lexer({},{}))
+    #print(ast)
     value = ''
     for element in ast:
-        value += element
+        if element != '\n':
+            value += element
     from ply.lex import LexToken
     res = LexToken()
     res.type = 'CPP_PATH'
-    res.value = value
-    res.lineno = 0 #args[0].lineno
+    #res.value = value
+    res.lineno = x[0].lineno
     res.lexpos = 0 #args[0].lexpos
+    res.value = value
+    #if value != '':
+    #    res.value = value
+    #else:
+    #    res.value = ''
+    #print(res)
     return res
 
 # Some Python 3 compatibility shims
@@ -858,6 +899,7 @@ class Preprocessor(PreprocessorHooks):
             output_and_expand_line = True
             output_unexpanded_line = False
 
+            
             #print(tok)
             #print(i)
             #print(chunk)
@@ -905,39 +947,50 @@ class Preprocessor(PreprocessorHooks):
                                     yield tok
                     elif name == 'include' or name == 'f':
                         if enable:
-                            #print(self.expand_macros(chunk))
                             for tok in self.expand_macros(chunk):
                                 yield tok
                             chunk = []
                             oldfile = self.macros['__FILE__'] if '__FILE__' in self.macros else None
 
-                            #print(args)
 
-                            #####################################
+                            ###########################################################################################
                             # a hack.
                             # -f xxx.f  ->  "xxx.f"
-                            #####################################
-                            value = ''
-                            for arg in args:
-                                #arg.type == 'CPP_ENV'
-                                value += arg.value
-                            value = "\"%s\"" % value
-                            from ply.lex import LexToken
-                            res = LexToken()
-                            res.type = self.t_STRING
-                            res.value = os.path.expandvars(value)
-                            res.lineno = args[0].lineno
-                            res.lexpos = args[0].lexpos
+                            ###########################################################################################
+
+                            current_file = PathRecord.CURRENT_FILE
+
+                            res = expand_path(args)
+                            res.value = res.value.replace('\n','')
+                            res.file = PathRecord.CURRENT_FILE
 
 
-                            #if args and args[0].value != '<' and args[0].type != self.t_STRING:
-                            #    args = self.tokenstrip(self.expand_macros(args))
-                            #print('***', ''.join([x.value for x in args]), file = sys.stderr)
-                            #print(list(self.include(args, x)))
+                            if os.path.exists(res.value):
+
+                                if PathRecord.check_include_path_duplicate(res):
+                                    res_tokens = []
+                                else:
+                                    # record res in INCLUDE_PATH_LIST
+                                    new_res = copy.copy(res)
+                                    PathRecord.INCLUDE_PATH_LIST.append(new_res)
+
+                                    res.type = self.t_STRING
+                                    res.value = f'\"{res.value}\"'
+                                    res_tokens = [res]
+                            else:
+                                print(f'Error at {PathRecord.CURRENT_FILE}:{res.lineno}, path \"{res.value}\" not exist, skip include.')
+                                res_tokens = []
+
+
+
+                            ############################################################################################
                             
-                            for tok in self.include([res], x):
+                            for tok in self.include(res_tokens, x):
                                 yield tok
                             
+                            ## hack after include done. ################################################################
+                            PathRecord.CURRENT_FILE = current_file 
+                            ############################################################################################
 
                             if oldfile is not None:
                                 self.macros['__FILE__'] = oldfile
@@ -1099,6 +1152,7 @@ class Preprocessor(PreprocessorHooks):
                     else:
                         assert False
 
+            #print(x)
            # print('=======================')
 
             # If there is ever any non-whitespace output outside an include guard, auto pragma once is not possible
@@ -1119,9 +1173,17 @@ class Preprocessor(PreprocessorHooks):
                 # a hack.
                 ###########################################
 
-                
-                x = [expand_path(x)]
                 if enable:
+                    #print(x)
+                    #print(x)
+                    #print(enable)
+                    #PathRecord.ENABLE = enable
+                    x = [expand_path(x)]
+
+                    for e in x:
+                        if e.value != '':
+                            e.value = e.value + '\n'
+                #print(x)
                     if output_and_expand_line:
                         chunk.extend(x)
 
@@ -1144,10 +1206,14 @@ class Preprocessor(PreprocessorHooks):
         #print(chunk)
         #self.evaluator
         ## a hack.
-        chunk = [c for c in chunk if c.value != '\n']
+        #print('chunk=========')
+        #print(chunk)
+        chunk = [c for c in chunk if c.value.replace("\n", "") != ""]
+        #print(chunk)
         for tok in self.expand_macros(chunk):
             yield tok
         #print(chunk)
+        #print('chunk finish')
         chunk = []
         for i in ifstack:
             self.on_error(i.startlinetoks[0].source, i.startlinetoks[0].lineno, "Unterminated " + "".join([n.value for n in i.startlinetoks]))
@@ -1202,6 +1268,8 @@ class Preprocessor(PreprocessorHooks):
                 return
         if not path:
             path = ['']
+        #global CURRENT_FILE
+        PathRecord.CURRENT_FILE = os.path.abspath(filename)
         while True:
             #print path
             for p in path:
