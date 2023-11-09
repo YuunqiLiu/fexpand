@@ -966,10 +966,10 @@ class Preprocessor(PreprocessorHooks):
 
 
                             if os.path.exists(res.value):
-
                                 if PathRecord.check_include_path_duplicate(res):
                                     res_tokens = []
                                 else:
+                                    print(f'[Info] at {PathRecord.CURRENT_FILE}:{res.lineno}, include path \"{res.value}\" .')
                                     # record res in INCLUDE_PATH_LIST
                                     new_res = copy.copy(res)
                                     PathRecord.INCLUDE_PATH_LIST.append(new_res)
@@ -978,7 +978,7 @@ class Preprocessor(PreprocessorHooks):
                                     res.value = f'\"{res.value}\"'
                                     res_tokens = [res]
                             else:
-                                print(f'Error at {PathRecord.CURRENT_FILE}:{res.lineno}, path \"{res.value}\" not exist, skip include.')
+                                print(f'[Error] at {PathRecord.CURRENT_FILE}:{res.lineno}, path \"{res.value}\" not exist, skip include.')
                                 res_tokens = []
 
 
