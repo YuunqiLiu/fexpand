@@ -97,7 +97,9 @@ def p_file_name_cpp_integer(p):
     #p[0] = p[1]
 
 def p_file_name_cpp_dot(p):
-    'file_name : CPP_DOT'
+    '''
+    file_name : CPP_DOT
+                 | CPP_MINUS'''
     p[0] = LexToken()
     p[0].type   = 'CPP_DOT'
     p[0].lineno = p.lineno(1)

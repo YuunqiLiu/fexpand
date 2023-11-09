@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(prog='fexpand',
     (non-existing files are left as they are). Fexpand supports most of the c99 macro syntax.''')
 parser.add_argument('-i', '--input', help='input filelist path', required=True)
 parser.add_argument('-o', '--output', help='output expanded filelist path', default='expanded_filelist.f')
-parser.add_argument('-D', dest = 'defines', metavar = 'macro[=val]', nargs = 1, action = 'append', help = 'Predefine name as a macro [with value]')
+parser.add_argument('-D', dest = 'defines', metavar = 'macro[=val]', nargs = 1, action = 'append', help = 'Predefine name as a macro [with value]',default=[])
 #parser.add_argument('-h', '--help', action='help', help='show this help message and exit')
 
 args = parser.parse_args()
@@ -27,6 +27,7 @@ args = parser.parse_args()
 print(f'[FEXPAND] Start:')
 print(f'[FEXPAND] Input  file path: {args.input}')
 print(f'[FEXPAND] Output file path: {args.output}')
+
 
 defines = [x[0] for x in args.defines]
 print(f'[FEXPAND] Marco defined in cmd line: {defines}')

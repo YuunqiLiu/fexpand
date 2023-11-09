@@ -5,7 +5,8 @@
 -y 2333.v
 #define A C+1
 #define B 9
-
+-y $PRJ_ICDIR/fexpand
+$PRJ_ICDIR/fexpand
 #define OPEN_SUB
 #define SUB1
 #ifdef SUB1
@@ -19,9 +20,9 @@
 -f $PRJ_ICDIR/../pcpp/fexpand_test/sub2.f
 #endif
 
+QWER/res-res.v
 #ifdef SUB3
 ../res.v
 #endif
-$PRJ_ICDIR/fexpand
 
-$PRJ_ICDIR/fexpand
+
