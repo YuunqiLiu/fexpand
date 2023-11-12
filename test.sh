@@ -2,4 +2,4 @@
 
 
 export PRJ_ICDIR=/home/liuyunqi/tree/pcpp
-./fexpand ./fexpand_test/top.f res.o
+./fexpand -i ./fexpand_test/top.f -o res.o -D SUB3 -D SUB1

@@ -1,5 +1,6 @@
 # Yacc example
-
+from copy import copy, deepcopy
+from functools import reduce
 import ply.yacc as yacc 
 import ply.lex as lex
 import os
@@ -10,109 +11,249 @@ if __name__ == "__main__":
     from path_parser import *
 else:
     from .path_parser import *
-#from pcpp.evaluator import *
 
-class Path(object):
+class AstNode(object):
 
-    def __init__(self,value,is_path = True) -> None:
-        self.value = value
-        self.is_path = is_path
+    def __init__(self):
+        self.lineno     = None
+        self._value = None
+
+class AstExplist(AstNode):
+
+    def __init__(self):
+        super().__init__()
+        self.son_list = []
+
+    @property
+    def value(self):
+        return ''.join([x.value for x in self.son_list])
+    
+
+    def get_legal_value(self):
+        return ''.join(x.get_legal_value() for x in self.son_list)
+
+class AstExp(AstNode):
+
+    def __init__(self):
+        super().__init__()
+        self._value = None
+
+    @property
+    def value(self):
+        return self._value
+
+
+    @value.setter
+    def value(self, val):
+        self._value = val
+
+    def get_legal_value(self):
+        return self.value
+
+
+class AstFilelist(AstNode):
+
+    def __init__(self):
+        super().__init__()
+        self.son_list = []
+
+    @property
+    def value(self):
+        return ''.join([x.value for x in self.son_list])
+
+    @value.setter
+    def value(self, val):
+        self._value = val
+
+    def get_legal_value(self):
+        if PathRecord.check_payload_path_duplicate(self):
+            res = ''
+        else:
+            if os.path.exists(self.value):
+                res = self.value
+                if PathRecord.check_payload_filename_duplicate(self):
+                    res = ''
+                else:
+                    res = self.value
+                    PathRecord.PAYLOAD_FILENAME_LIST.append(self)
+            else:
+                res = self.value
+                print(f'[Error] Skip conflict check and pass through to output for file {self.value} at {PathRecord.CURRENT_FILE}:{self.lineno} because it is not exist, .')
+            PathRecord.PAYLOAD_PATH_LIST.append(self)
+
+        return res
+
+
+
+class AstFile(AstNode):
+
+    def __init__(self):
+        super().__init__()
+        self._value = None
+
+    @property
+    def value(self):
+        return self._value
+
+
+    @value.setter
+    def value(self, val):
+        self._value = val
+
+##########################################################################################################
+
+
+##########################################################################################################
 
 def p_expression_lst_create(p):
-    'exp_list : expression'
-    p[0] = [p[1]]
+    '''
+    exp_list : expression
+             | file_list
+    '''
+    p[0] = AstExplist()
+    p[0].lineno = p[1].lineno
+    p[0].son_list.append(p[1])
 
 def p_expression_lst_append(p):
-    'exp_list : exp_list expression'
-    p[0] = p[1] + [p[2]]
+    '''exp_list : exp_list expression
+                | exp_list file_list'''
+    p[0] =  deepcopy(p[1])
+    p[0].son_list.append(p[2])
+
+#def p_expression_basic(p):
+#    'expression : file_name'
+
+    # p[1].file = PathRecord.CURRENT_FILE
+    # if not PathRecord.check_payload_path_duplicate(p[1]):
+    #     #PathRecord.PAYLOAD_PATH_LIST.append(p[1])
+    #     if os.path.exists(p[1].value):
+    #         abs_path = os.path.abspath(p[1].value)
+    #         p[0] = abs_path
+
+    #         new_dir, new_name = os.path.split(p[1].value)
+
+    #         for old_path in PathRecord.PAYLOAD_PATH_LIST:
+    #             old_dir, old_name = os.path.split(old_path.value)
+    #             if new_name == old_name:
+    #                 conflict = not filecmp.cmp(p[1].value, old_path.value)
+
+    #                 if conflict:
+    #                     print(f'[Conflict] {p[1].value} in {p[1].file}:{p[1].lineno} has diff content with {old_path.value} in {old_path.file}:{old_path.lineno}, skip.')
+    #                 else:
+    #                     print(f'[Warning] {p[1].value} in {p[1].file}:{p[1].lineno} has same content with {old_path.value} in {old_path.file}:{old_path.lineno}, skip.')
+    #                 p[0] = ''
+    #              
+    #     else:
+    #         print(f'[Warning] File {p[1].value} at {PathRecord.CURRENT_FILE}:{p[1].lineno} not exist, skip conflict check and pass through to output.')
+    #         p[0] = p[1].value
+    # else:
+    #     p[0] = ''
+    #print(p[0])
+
+    # if os.path.exists(p[1].value):
+    #     abs_path = os.path.abspath(p[1].value)
+# # # 
+    #     p[1].file = PathRecord.CURRENT_FILE
+    #     if PathRecord.check_payload_path_duplicate(p[1]):
+    #         p[0] = ''
+    #     else:
+    #         p[0] = abs_path
+    #         #PathRecord.PAYLOAD_PATH_LIST.append(p[1])
+    # else:
+    #     print(f'[Warning] File {p[1].value} at {PathRecord.CURRENT_FILE}:{p[1].lineno} not exist, but pass through to output.')
+    #     p[0] = p[1].value
+    #print(p[0])
 
 
 
-def p_expression_basic(p):
-    'expression : file_name'
-    if os.path.exists(p[1].value):
-        abs_path = os.path.abspath(p[1].value)
+def p_file_list_create(p):
+    'file_list : file_name'
+    p[0] = AstFilelist()
+    p[0].lineno = p[1].lineno
+    p[0].son_list.append(p[1])
+    p[0].file = PathRecord.CURRENT_FILE
 
-        p[1].file = PathRecord.CURRENT_FILE
-        if PathRecord.check_payload_path_duplicate(p[1]):
-            p[0] = ''
-        else:
-            p[0] = abs_path
-            PathRecord.PAYLOAD_PATH_LIST.append(p[1])
-    else:
-        print(f'[Warning] File {p[1].value} at {PathRecord.CURRENT_FILE}:{p[1].lineno} not exist, but pass through to output.')
-        p[0] = p[1].value
 
-def p_file_name_merge(p):
-    'file_name : file_name file_name'
-    p[0] = LexToken()
-    p[0].type   = p[2].type
-    p[0].lineno = p[2].lineno
-    p[0].lexpos = 0
-    p[0].value  = p[1].value + p[2].value
-    #p[0] = p[1] + p[2] 
+def p_file_list_merge(p):
+    'file_list : file_list file_name'
+    p[0] = deepcopy(p[1])
+    p[0].son_list.append(p[2])
+    p[0].file = PathRecord.CURRENT_FILE
+
+
 
 def p_filename_init(p):
-    'file_name : CPP_FSLASH'
-    p[0] = LexToken()
-    p[0].type   = 'CPP_FSLASH'
+    '''file_name : CPP_FSLASH
+                 | CPP_ID
+                 | CPP_INTEGER
+                 | CPP_DOT
+                 | CPP_MINUS
+    '''
+    p[0] = AstFile()
     p[0].lineno = p.lineno(1)
-    p[0].lexpos = 0
     p[0].value  = p[1]
-    #p[0] = '/'
+
+
 
 def p_env_expand_(p):
     'file_name : CPP_ENV'
 
-    p[0] = LexToken()
-    p[0].type   = 'CPP_ENV'
+    p[0] = AstFile()
     p[0].lineno = p.lineno(1)
-    p[0].lexpos = 0
     p[0].value  = p[1]
     
     if not p[1] in os.environ:
-        print(f'Error at {PathRecord.CURRENT_FILE}:{p.lineno(1)}, ENV {p[1]} not exist.')
+        print(f'Error at {PathRecord.CURRENT_FILE}:{p.lineno(1)}, env var {p[1]} not exist, keep it.')
         p[0].value = p[1]
     else:
         p[0].value = os.environ[p[1]]
         
 
 
-def p_file_name_cpp_id(p):
-    'file_name : CPP_ID'
-    p[0] = LexToken()
-    p[0].type   = 'CPP_ID'
-    p[0].lineno = p.lineno(1)
-    p[0].lexpos = 0
-    p[0].value  = p[1]
-    #p[0] = p[1]
 
-def p_file_name_cpp_integer(p):
-    'file_name : CPP_INTEGER'
-    p[0] = LexToken()
-    p[0].type   = 'CPP_INTEGER'
-    p[0].lineno = p.lineno(1)
-    p[0].lexpos = 0
-    p[0].value  = p[1]
-    #p[0] = p[1]
+    # p[0] = AstNode()
+    # p[0].type   = 'PATH'
+    # p[0].lineno = p.lineno(1)
+    # p[0].value  = p[1].value + p[2].value
+    #p[0] = p[1] + p[2] 
 
-def p_file_name_cpp_dot(p):
-    '''
-    file_name : CPP_DOT
-                 | CPP_MINUS'''
-    p[0] = LexToken()
-    p[0].type   = 'CPP_DOT'
-    p[0].lineno = p.lineno(1)
-    p[0].lexpos = 0
-    p[0].value  = p[1]
 
-    #p[0] = p[1]
+# def p_file_name_cpp_id(p):
+#     'file_name : CPP_ID'
+#     p[0] = AstFile()
+#     p[0].lineno = p.lineno(1)
+#     p[0].value  = p[1]
+# 
+# 
+# def p_file_name_cpp_integer(p):
+#     'file_name : CPP_INTEGER'
+#     p[0] = AstFile()
+#     p[0].lineno = p.lineno(1)
+#     p[0].value  = p[1]
+# 
+# 
+# 
+# 
+# def p_file_name_cpp_dot(p):
+#     '''
+#     file_name : CPP_DOT
+#               | CPP_MINUS'''
+#     p[0] = AstFile()
+#     p[0].lineno = p.lineno(1)
+#     p[0].value  = p[1]
+# 
+#     #p[0] = p[1]
+
+
 
 def p_exp_plus_id_plus(p):
     '''expression : CPP_PLUS CPP_ID
                   | CPP_MINUS CPP_ID
     '''
-    p[0] = p[1] + p[2]
+    p[0] = AstExp()
+    p[0].lineno = p.lineno(1)
+    p[0].value  = p[1] + p[2]
+
 
 
 def p_error_process(p):
@@ -173,22 +314,24 @@ def p_error_process(p):
                | CPP_WS
                | CPP_XOREQUAL
     '''
-    #p[0] = p[1]
-    p[0] = p[1]
+    p[0] = AstExp()
+    p[0].lineno = p.lineno(1)
+    p[0].value  = p[1]
 
 
 
 
 # Error rule for syntax errors
 def p_error(p):
-    print("Syntax error in input!")
+    #print(p)
+    print("Syntax error in input %s !" % p)
 
 # Build the parser
 
 #print(res)
 
 lexer = default_lexer()
-pathparser = yacc.yacc()
+pathparser = yacc.yacc(debug=1)
 
 
 #lexer.input('${QWER}')

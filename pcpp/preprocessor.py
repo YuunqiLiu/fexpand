@@ -21,10 +21,8 @@ from .path_yacc import pathparser
 from . import path_yacc
 from .path_record import *
 
-def expand_path(x):
-    #print(x)
-    s = ''.join([t.value for t in x])
 
+def expand_path(x):
 
     class __lexer(object):
 
@@ -54,27 +52,14 @@ def expand_path(x):
                 raise SyntaxError('Unknown identifier %s' % p[1])
             p[0] = Value(self.__identifiers[p[1]])
             
-
-
     ast = pathparser.parse(x,lexer=__lexer({},{}))
-    #print(ast)
-    value = ''
-    for element in ast:
-        if element != '\n':
-            value += element
-    from ply.lex import LexToken
-    res = LexToken()
-    res.type = 'CPP_PATH'
-    #res.value = value
-    res.lineno = x[0].lineno
-    res.lexpos = 0 #args[0].lexpos
-    res.value = value
-    #if value != '':
-    #    res.value = value
-    #else:
-    #    res.value = ''
-    #print(res)
-    return res
+    return ast
+    # res = LexToken()
+    # res.type    = 'CPP_PATH'
+    # res.lineno  = x[0].lineno
+    # res.lexpos  = 0
+    # res.value   = ast.value
+    # return res
 
 # Some Python 3 compatibility shims
 if sys.version_info.major < 3:
@@ -960,25 +945,34 @@ class Preprocessor(PreprocessorHooks):
 
                             current_file = PathRecord.CURRENT_FILE
 
-                            res = expand_path(args)
-                            res.value = res.value.replace('\n','')
-                            res.file = PathRecord.CURRENT_FILE
+                            ast = expand_path(args)
+                            include_path = ast.value
 
+                        
+                            from ply.lex import LexToken
+                            res = LexToken()
+                            res.type    = 'CPP_PATH'
+                            res.lineno  = args[0].lineno
+                            res.lexpos  = 0
+                            res.value   = expand_path(args).value.replace('\n','')
+                            res.file    = PathRecord.CURRENT_FILE
 
-                            if os.path.exists(res.value):
+                            if os.path.exists(include_path):
                                 if PathRecord.check_include_path_duplicate(res):
                                     res_tokens = []
                                 else:
-                                    print(f'[Info] at {PathRecord.CURRENT_FILE}:{res.lineno}, include path \"{res.value}\" .')
+                                    print(f'[Info] Include path \"{res.value}\" at {PathRecord.CURRENT_FILE}:{res.lineno}.')
+                                    
                                     # record res in INCLUDE_PATH_LIST
                                     new_res = copy.copy(res)
                                     PathRecord.INCLUDE_PATH_LIST.append(new_res)
 
+                                    # update dummy token 
                                     res.type = self.t_STRING
                                     res.value = f'\"{res.value}\"'
                                     res_tokens = [res]
                             else:
-                                print(f'[Error] at {PathRecord.CURRENT_FILE}:{res.lineno}, path \"{res.value}\" not exist, skip include.')
+                                print(f'[Error] Skip Path {res.value} at {PathRecord.CURRENT_FILE}:{res.lineno} because it is not exist.')
                                 res_tokens = []
 
 
@@ -1152,9 +1146,6 @@ class Preprocessor(PreprocessorHooks):
                     else:
                         assert False
 
-            #print(x)
-           # print('=======================')
-
             # If there is ever any non-whitespace output outside an include guard, auto pragma once is not possible
             if not skip_auto_pragma_once_possible_check and auto_pragma_once_possible and not ifstack and not all_whitespace:
                 auto_pragma_once_possible = False
@@ -1174,16 +1165,27 @@ class Preprocessor(PreprocessorHooks):
                 ###########################################
 
                 if enable:
-                    #print(x)
-                    #print(x)
-                    #print(enable)
-                    #PathRecord.ENABLE = enable
-                    x = [expand_path(x)]
 
-                    for e in x:
-                        if e.value != '':
-                            e.value = e.value + '\n'
-                #print(x)
+
+                    ## hack here.
+                    ast = expand_path(x)
+                    val = ast.get_legal_value()
+
+                    # create a dummy token to adapt to init pcpp.
+                    from ply.lex import LexToken
+                    res = LexToken()
+                    res.type    = 'CPP_PATH'
+                    res.lineno  = x[0].lineno
+                    res.lexpos  = 0
+                    res.value   = val.replace('\n','')
+                    res.file    = PathRecord.CURRENT_FILE
+
+
+                    # update x to adapt to init pcpp.
+                    x = [res]
+
+                    ##########################################################################
+
                     if output_and_expand_line:
                         chunk.extend(x)
 
@@ -1203,13 +1205,10 @@ class Preprocessor(PreprocessorHooks):
                             i += 1
                     chunk.extend(x)
 
-        #print(chunk)
-        #self.evaluator
+        #####################################################################################
         ## a hack.
-        #print('chunk=========')
-        #print(chunk)
         chunk = [c for c in chunk if c.value.replace("\n", "") != ""]
-        #print(chunk)
+        ####################################################################################
         for tok in self.expand_macros(chunk):
             yield tok
         #print(chunk)

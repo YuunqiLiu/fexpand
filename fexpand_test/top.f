@@ -7,6 +7,7 @@
 #define B 9
 -y $PRJ_ICDIR/fexpand
 $PRJ_ICDIR/fexpand
+$PRJ_ICDIR/fexpand_test/fexpand
 #define OPEN_SUB
 #define SUB1
 #ifdef SUB1
@@ -15,14 +16,31 @@ $PRJ_ICDIR/fexpand
 #endif
 #undef OPEN_SUB
 //some comment 2
-#define SUB2
+
 #ifdef SUB2
 -f $PRJ_ICDIR/../pcpp/fexpand_test/sub2.f
 #endif
 
-QWER/res-res.v
+#define SUB3
 #ifdef SUB3
 ../res.v
+
 #endif
 
+QWER/res-res.v
+QWER/res-res.v
+QWER/res-res.v
+QWER/res-res.v
+QWER/res-res.v
+QWER/res-res.v
+QWER/res-res.v
 
+123.v
+QWER/res-res.v qwer.v
+
+
+#ifdef SUB1
+AAAAAAAAAAAAAAAAAAAAAAAA
+#endif
+-f $PRJ_ICDIR/../pcpp/fexpand_test/sub2.f
+-f $PRJ_ICDIR/../pcpp/fexpand_test/66666666666666666666666666666666666666666.f
