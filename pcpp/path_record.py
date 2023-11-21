@@ -42,6 +42,7 @@ class PathRecord(object):
 
         dup = False
         for e in cls.PAYLOAD_PATH_LIST:
+           # print(e.value)
             if node.value == e.value:
                 print(f'[INFO] Ignore path {node.value} in {node.file}:{node.lineno} because it is duplicated with {e.file}:{e.lineno}.')
                 dup = True

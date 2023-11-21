@@ -38,7 +38,7 @@ tokens = (
    'CPP_INEQUALITY', 'CPP_XOREQUAL', 'CPP_MULTIPLYEQUAL', 'CPP_DIVIDEEQUAL', 'CPP_PLUSEQUAL', 'CPP_PLUSPLUS',
    'CPP_PERCENTEQUAL', 'CPP_LSHIFTEQUAL', 'CPP_RSHIFTEQUAL',
 
-   'CPP_ENV'
+   'CPP_ENV','CPP_APOSTROPHE'
 
 
 )
@@ -60,6 +60,7 @@ def t_CPP_LINECONT(t):
 _string_literal_linecont_pat = re.compile(r'\\[ \t]*\n')
 
 t_CPP_POUND = r'\#'
+t_CPP_APOSTROPHE = r'\`'
 t_CPP_DPOUND = r'\#\#'
 t_CPP_PLUS = r'\+'
 t_CPP_MINUS = r'-'

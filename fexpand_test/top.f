@@ -3,8 +3,17 @@
 +incdir+   $PRJ_ICDIR/qwerwr
 +incdir+   ./qwer
 -y 2333.v
-#define A C+1
-#define B 9
+
+QWER/res-res.v
+QWER/res-res.v
+QWER/res-res.v
+QWER/res-res.v
+QWER/res-res.v
+QWER/res-res.v
+QWER/res-res.v
+
+`define A C+1
+`define B 9
 -y $PRJ_ICDIR/fexpand
 $PRJ_ICDIR/fexpand
 $PRJ_ICDIR/fexpand_test/fexpand
@@ -39,8 +48,8 @@ QWER/res-res.v
 QWER/res-res.v qwer.v
 
 
-#ifdef SUB1
+`ifdef SUB1
 AAAAAAAAAAAAAAAAAAAAAAAA
-#endif
+`endif
 -f $PRJ_ICDIR/../pcpp/fexpand_test/sub2.f
 -f $PRJ_ICDIR/../pcpp/fexpand_test/66666666666666666666666666666666666666666.f

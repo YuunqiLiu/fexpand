@@ -885,10 +885,10 @@ class Preprocessor(PreprocessorHooks):
             output_unexpanded_line = False
 
             
-            #print(tok)
+            
             #print(i)
             #print(chunk)
-            if tok.value == '#' or tok.value == '-':
+            if tok.value == '#' or tok.value == '-' or tok.value == '`':
                 precedingtoks = [ tok ]
                 output_and_expand_line = False
                 try:
@@ -970,6 +970,7 @@ class Preprocessor(PreprocessorHooks):
                                     # update dummy token 
                                     res.type = self.t_STRING
                                     res.value = f'\"{res.value}\"'
+
                                     res_tokens = [res]
                             else:
                                 print(f'[Error] Skip Path {res.value} at {PathRecord.CURRENT_FILE}:{res.lineno} because it is not exist.')
@@ -1170,19 +1171,24 @@ class Preprocessor(PreprocessorHooks):
                     ## hack here.
                     ast = expand_path(x)
                     val = ast.get_legal_value()
+                    #print(val)
 
                     # create a dummy token to adapt to init pcpp.
                     from ply.lex import LexToken
-                    res = LexToken()
-                    res.type    = 'CPP_PATH'
-                    res.lineno  = x[0].lineno
-                    res.lexpos  = 0
-                    res.value   = val.replace('\n','')
-                    res.file    = PathRecord.CURRENT_FILE
-
-
+                    _tmp = LexToken()
+                    _tmp.type    = 'CPP_PATH'
+                    _tmp.lineno  = x[0].lineno
+                    _tmp.lexpos  = 0
+                    _tmp.value   = val.replace('\n','') 
+                    _tmp.file    = PathRecord.CURRENT_FILE
+                    #print('---',res.value)
                     # update x to adapt to init pcpp.
-                    x = [res]
+
+                    #x = [e for e in x if e.value != '\n']
+                    #print('----')
+                    #print(x)
+                    x = [_tmp]
+                    #print(x)
 
                     ##########################################################################
 
@@ -1207,12 +1213,12 @@ class Preprocessor(PreprocessorHooks):
 
         #####################################################################################
         ## a hack.
-        chunk = [c for c in chunk if c.value.replace("\n", "") != ""]
+        #chunk = [c for c in chunk if c.value.replace("\n", "") != ""]
+
+        
         ####################################################################################
         for tok in self.expand_macros(chunk):
             yield tok
-        #print(chunk)
-        #print('chunk finish')
         chunk = []
         for i in ifstack:
             self.on_error(i.startlinetoks[0].source, i.startlinetoks[0].lineno, "Unterminated " + "".join([n.value for n in i.startlinetoks]))
@@ -1527,9 +1533,10 @@ class Preprocessor(PreprocessorHooks):
             #print toks[0].lineno, 
             for tok in toks:
                 #print tok.value,
-                res += (tok.value)
+                ## a hack
+                res += (tok.value + '\n') if tok.value != '' else tok.value
+                #print(tok.value)
                 #oh.write(tok.value)
-            #print ''
             return res
 
             
