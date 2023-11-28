@@ -954,11 +954,12 @@ class Preprocessor(PreprocessorHooks):
                             res.type    = 'CPP_PATH'
                             res.lineno  = args[0].lineno
                             res.lexpos  = 0
-                            res.value   = expand_path(args).value.replace('\n','')
+                            res.value   = include_path.replace('\n','')
                             res.file    = PathRecord.CURRENT_FILE
 
                             if os.path.exists(include_path):
                                 if PathRecord.check_include_path_duplicate(res):
+
                                     res_tokens = []
                                 else:
                                     print(f'[Info] Include path \"{res.value}\" at {PathRecord.CURRENT_FILE}:{res.lineno}.')
@@ -972,8 +973,10 @@ class Preprocessor(PreprocessorHooks):
                                     res.value = f'\"{res.value}\"'
 
                                     res_tokens = [res]
+
                             else:
                                 print(f'[Error] Skip Path {res.value} at {PathRecord.CURRENT_FILE}:{res.lineno} because it is not exist.')
+
                                 res_tokens = []
 
 
