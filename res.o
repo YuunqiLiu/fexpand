@@ -1,13 +1,17 @@
 +incdir+   /home/liuyunqi/tree/pcpp/qwerwr
 +incdir+   ./qwer
+-y 2333
 -y 2333.v
 QWER/res-res.v
 -y /home/liuyunqi/tree/pcpp/fexpand
+/home/liuyunqi/tree/pcpp/open_sub2.v
+/home/liuyunqi/tree/pcpp/sub2.v
 /home/liuyunqi/tree/pcpp/open_sub1.v
 /home/liuyunqi/tree/pcpp/sub1.v
 ../res.v
 123.v
- qwer.v
+QWER/res-res.v qwer.v
 AAAAAAAAAAAAAAAAAAAAAAAA
-
-
+ffff
+eee
+fqwerqewrqewr

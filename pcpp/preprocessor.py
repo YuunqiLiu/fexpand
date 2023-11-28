@@ -865,6 +865,7 @@ class Preprocessor(PreprocessorHooks):
         self.on_potential_include_guard(None)
 
         for x in lines:
+            
             all_whitespace = True
             skip_auto_pragma_once_possible_check = False
             # Handle comments
@@ -947,7 +948,6 @@ class Preprocessor(PreprocessorHooks):
 
                             ast = expand_path(args)
                             include_path = ast.value
-
                         
                             from ply.lex import LexToken
                             res = LexToken()
@@ -980,8 +980,10 @@ class Preprocessor(PreprocessorHooks):
 
                             ############################################################################################
                             
+
                             for tok in self.include(res_tokens, x):
                                 yield tok
+
                             
                             ## hack after include done. ################################################################
                             PathRecord.CURRENT_FILE = current_file 
@@ -1170,8 +1172,14 @@ class Preprocessor(PreprocessorHooks):
 
                     ## hack here.
                     ast = expand_path(x)
-                    val = ast.get_legal_value()
-                    #print(val)
+                    val = re.sub('\s+',' ',ast.value)
+                    if val.isspace():
+                        pass
+                    elif PathRecord.check_payload_path_duplicate(ast):
+                        val = ""
+                    else:
+                        PathRecord.PAYLOAD_PATH_LIST.append(ast)
+                        val = ast.get_legal_value()
 
                     # create a dummy token to adapt to init pcpp.
                     from ply.lex import LexToken
@@ -1180,9 +1188,12 @@ class Preprocessor(PreprocessorHooks):
                     _tmp.lineno  = x[0].lineno
                     _tmp.lexpos  = 0
                     _tmp.value   = val.replace('\n','') 
+                    if _tmp.value.isspace():
+                        _tmp.value = ""
                     _tmp.file    = PathRecord.CURRENT_FILE
                     #print('---',res.value)
                     # update x to adapt to init pcpp.
+
 
                     #x = [e for e in x if e.value != '\n']
                     #print('----')

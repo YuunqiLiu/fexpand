@@ -27,7 +27,8 @@ class PathRecord(object):
         dup = False
         for e in cls.INCLUDE_PATH_LIST:
             if os.path.abspath(token.value) == os.path.abspath(e.value):
-                print(f'[Info] Ignore include {token.value} in {token.file}:{token.lineno} because it is duplicated with {e.value} in {e.file}:{e.lineno}.')
+                val = token.value.replace('\n','')
+                print(f'[Info] Ignore include {val} in {token.file}:{token.lineno} because it is duplicated with {e.value} in {e.file}:{e.lineno}.')
                 dup = True
         return dup
     
@@ -43,8 +44,9 @@ class PathRecord(object):
         dup = False
         for e in cls.PAYLOAD_PATH_LIST:
            # print(e.value)
-            if node.value == e.value:
-                print(f'[INFO] Ignore path {node.value} in {node.file}:{node.lineno} because it is duplicated with {e.file}:{e.lineno}.')
+            if node.get_formatted_value() == e.get_formatted_value():
+                val = node.value.replace('\n','')
+                print(f'[INFO] Ignore path \"{val}\" in {node.file}:{node.lineno} because it is duplicated with {e.file}:{e.lineno}.')
                 dup = True
 
         return dup

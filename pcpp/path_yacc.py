@@ -6,6 +6,7 @@ import ply.lex as lex
 import os
 # Get the token map from the lexer.  This is required.
 from .path_record import *
+import re
 
 if __name__ == "__main__":
     from path_parser import *
@@ -17,6 +18,9 @@ class AstNode(object):
     def __init__(self):
         self.lineno     = None
         self._value = None
+
+    def get_formatted_value(self):
+        return re.sub('\s+',' ',self.value)
 
 class AstExplist(AstNode):
 
@@ -66,20 +70,20 @@ class AstFilelist(AstNode):
         self._value = val
 
     def get_legal_value(self):
-        if PathRecord.check_payload_path_duplicate(self):
-            res = ''
-        else:
-            if os.path.exists(self.value):
-                res = self.value
-                if PathRecord.check_payload_filename_duplicate(self):
-                    res = ''
-                else:
-                    res = self.value
-                    PathRecord.PAYLOAD_FILENAME_LIST.append(self)
+        #if PathRecord.check_payload_path_duplicate(self):
+        #    res = ''
+        #else:
+        if os.path.exists(self.value):
+            res = self.value
+            if PathRecord.check_payload_filename_duplicate(self):
+                res = ''
             else:
                 res = self.value
-                print(f'[Error] Skip conflict check and pass through to output for file {self.value} at {PathRecord.CURRENT_FILE}:{self.lineno} because it is not exist, .')
-            PathRecord.PAYLOAD_PATH_LIST.append(self)
+                PathRecord.PAYLOAD_FILENAME_LIST.append(self)
+        else:
+            res = self.value
+            print(f'[Error] Skip conflict check for file {self.value} at {PathRecord.CURRENT_FILE}:{self.lineno} because it is not exist, .')
+        PathRecord.PAYLOAD_PATH_LIST.append(self)
 
         return res
 
@@ -113,6 +117,7 @@ def p_expression_lst_create(p):
     p[0] = AstExplist()
     p[0].lineno = p[1].lineno
     p[0].son_list.append(p[1])
+    p[0].file = PathRecord.CURRENT_FILE
 
 def p_expression_lst_append(p):
     '''exp_list : exp_list expression
