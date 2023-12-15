@@ -18,7 +18,7 @@ parser = argparse.ArgumentParser(prog='fexpand',
     Similarly, all paths are converted to absolute paths 
     (non-existing files are left as they are). Fexpand supports most of the c99 macro syntax.
     
-    (FEXPAND VERSION 1.2)''')
+    (FEXPAND VERSION 1.3)''')
 parser.add_argument('-i', '--input', help='input filelist path', required=True)
 parser.add_argument('-o', '--output', help='output expanded filelist path', default='expanded_filelist.f')
 parser.add_argument('-D', dest = 'defines', metavar = 'macro[=val]', nargs = 1, action = 'append', help = 'Predefine name as a macro [with value]',default=[])

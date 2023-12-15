@@ -5,22 +5,30 @@ import ply.yacc as yacc
 import ply.lex as lex
 import os
 # Get the token map from the lexer.  This is required.
-from .path_record import *
+
 import re
 
 if __name__ == "__main__":
     from path_parser import *
+    from path_record import *
 else:
     from .path_parser import *
+    from .path_record import *
 
 class AstNode(object):
 
     def __init__(self):
         self.lineno     = None
         self._value = None
+        self._file_only = False
+
+    @property
+    def file_only(self):
+        return self._file_only
 
     def get_formatted_value(self):
         return re.sub('\s+',' ',self.value)
+    
 
 class AstExplist(AstNode):
 
@@ -29,12 +37,46 @@ class AstExplist(AstNode):
         self.son_list = []
 
     @property
+    def file_only(self):
+        for i in self.son_list:
+            if i.file_only is False:
+                return False
+        return True
+
+    @property
     def value(self):
         return ''.join([x.value for x in self.son_list])
     
 
+    def get_formatted_value(self):
+        tmp = ''.join(x.get_legal_value() for x in self.son_list)
+        tmp = re.sub('\s+','',tmp)
+        tmp = re.sub('\n','',tmp)
+        return tmp
+
     def get_legal_value(self):
-        return ''.join(x.get_legal_value() for x in self.son_list)
+
+        #if not self.file_only:
+        #    print(f'[Info] Skip conflict check for {self.get_formatted_value()} at {PathRecord.CURRENT_FILE}:{self.lineno} because it is not a file.')
+
+        #elif os.path.exists(self.value):
+            #res = self.get_formatted_value()
+        #    if PathRecord.check_payload_filename_duplicate(self):
+                #res = ''
+        #    else:
+                #res = self.get_formatted_value()
+        #        PathRecord.PAYLOAD_FILENAME_LIST.append(self)
+        #else:
+            #res = self.get_formatted_value()
+        #    print(f'[Error] Skip conflict check for file {self.value} at {PathRecord.CURRENT_FILE}:{self.lineno} because it is not exist.')
+        #PathRecord.PAYLOAD_PATH_LIST.append(self)
+
+
+        return self.value
+    
+
+
+    
 
 class AstExp(AstNode):
 
@@ -61,6 +103,14 @@ class AstFilelist(AstNode):
         super().__init__()
         self.son_list = []
 
+
+    @property
+    def file_only(self):
+        for i in self.son_list:
+            if i.file_only is False:
+                return False
+        return True
+
     @property
     def value(self):
         return ''.join([x.value for x in self.son_list])
@@ -73,17 +123,22 @@ class AstFilelist(AstNode):
         #if PathRecord.check_payload_path_duplicate(self):
         #    res = ''
         #else:
-        if os.path.exists(self.value):
-            res = self.value
-            if PathRecord.check_payload_filename_duplicate(self):
-                res = ''
-            else:
-                res = self.value
-                PathRecord.PAYLOAD_FILENAME_LIST.append(self)
-        else:
-            res = self.value
-            print(f'[Error] Skip conflict check for file {self.value} at {PathRecord.CURRENT_FILE}:{self.lineno} because it is not exist, .')
-        PathRecord.PAYLOAD_PATH_LIST.append(self)
+        #print('=========================')
+        #print(self)
+        #print(self.value)
+        # if os.path.exists(self.value):
+        #     res = self.value
+        #     if PathRecord.check_payload_filename_duplicate(self):
+        #         res = ''
+        #     else:
+        #         res = self.value
+        #         PathRecord.PAYLOAD_FILENAME_LIST.append(self)
+        # else:
+        #     res = self.value
+        #     print(f'[Error] Skip conflict check for file {self.value} at {PathRecord.CURRENT_FILE}:{self.lineno} because it is not exist, .')
+        # PathRecord.PAYLOAD_PATH_LIST.append(self)
+# 
+        res = self.value
 
         return res
 
@@ -94,6 +149,7 @@ class AstFile(AstNode):
     def __init__(self):
         super().__init__()
         self._value = None
+        self._file_only = True
 
     @property
     def value(self):
@@ -344,8 +400,69 @@ pathparser = yacc.yacc(debug=1)
 #print(tok_list)
 if __name__ == "__main__":
 
-    res = pathparser.parse('+incdir+/QWER.QWRE_QWERE.${PATH}.sv/QWER.v')
+    x = []
+    res = LexToken()
+    res.type    = 'CPP_PLUS'
+    res.lineno  = 0
+    res.lexpos  = 0
+    res.value   = '+'
+    x.append(res)
+
+    res = LexToken()
+    res.type    = 'CPP_ID'
+    res.lineno  = 0
+    res.lexpos  = 0
+    res.value   = 'incdir'
+    x.append(res)    
+
+    res = LexToken()
+    res.type    = 'CPP_PLUS'
+    res.lineno  = 0
+    res.lexpos  = 0
+    res.value   = '+'
+    x.append(res)
+
+    res = LexToken()
+    res.type    = 'CPP_ID'
+    res.lineno  = 0
+    res.lexpos  = 0
+    res.value   = 'pcpp'
+    x.append(res)
+
+    class __lexer(object):
+
+        def __init__(self, functions, identifiers):
+            self.__toks = []
+            self.__functions = functions
+            self.__identifiers = identifiers
+
+        def input(self, toks):
+            self.__toks = [tok for tok in toks ]
+            #self.__toks = [tok for tok in toks if tok.type != 'CPP_WS' and tok.type != 'CPP_LINECONT' and tok.type != 'CPP_COMMENT1' and tok.type != 'CPP_COMMENT2']
+            self.__idx = 0
+
+        def token(self):
+            if self.__idx >= len(self.__toks):
+                return None
+            self.__idx = self.__idx + 1
+            return self.__toks[self.__idx - 1]
+
+        def on_function_call(self, p):
+            if p[1] not in self.__functions:
+                raise SyntaxError('Unknown function %s' % p[1])
+            p[0] = Value(self.__functions[p[1]](p[3]))
+
+        def on_identifier(self, p):
+            if p[1] not in self.__identifiers:
+                raise SyntaxError('Unknown identifier %s' % p[1])
+            p[0] = Value(self.__identifiers[p[1]])
+
+
+    res = pathparser.parse(x,lexer=__lexer({},{}))
+
     print(res)
+    for i in res.son_list:
+        print(i.value)
 #res = parser.parse('QWER/ASDF')
 # while True:
 #    try:

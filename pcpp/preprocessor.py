@@ -1172,17 +1172,24 @@ class Preprocessor(PreprocessorHooks):
 
                 if enable:
 
-
                     ## hack here.
                     ast = expand_path(x)
                     val = re.sub('\s+',' ',ast.value)
+
+                    tmp = PathRecord.check_payload_path_duplicate(ast)
+
                     if val.isspace():
                         pass
-                    elif PathRecord.check_payload_path_duplicate(ast):
+                    elif tmp:
                         val = ""
                     else:
                         PathRecord.PAYLOAD_PATH_LIST.append(ast)
+                        #print('??????????????????????????')
+                        #print(ast)
+                        #for i in ast.son_list:
+                        #    print(i.value)
                         val = ast.get_legal_value()
+
 
                     # create a dummy token to adapt to init pcpp.
                     from ply.lex import LexToken

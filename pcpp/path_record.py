@@ -38,12 +38,11 @@ class PathRecord(object):
     @classmethod
     def check_payload_path_duplicate(cls, node):
 
-        if node.value is "":
+        if node.value == "":
             return False
 
         dup = False
         for e in cls.PAYLOAD_PATH_LIST:
-           # print(e.value)
             if node.get_formatted_value() == e.get_formatted_value():
                 val = node.value.replace('\n','')
                 print(f'[INFO] Ignore path \"{val}\" in {node.file}:{node.lineno} because it is duplicated with {e.file}:{e.lineno}.')
@@ -53,7 +52,7 @@ class PathRecord(object):
     
     @classmethod
     def check_payload_filename_duplicate(cls, node):
-        if node.value is "":
+        if node.value == "":
             return True
         
         new_path, new_name = os.path.split(node.value)
