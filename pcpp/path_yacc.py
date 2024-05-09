@@ -45,7 +45,7 @@ class AstExplist(AstNode):
 
     @property
     def value(self):
-        return ''.join([x.value for x in self.son_list])
+        return ''.join([x.value for x in self.son_list]).replace('\n','')
     
 
     def get_formatted_value(self):
@@ -113,7 +113,7 @@ class AstFilelist(AstNode):
 
     @property
     def value(self):
-        return ''.join([x.value for x in self.son_list])
+        return ''.join([x.value for x in self.son_list]).replace('\n','')
 
     @value.setter
     def value(self, val):
@@ -138,7 +138,7 @@ class AstFilelist(AstNode):
         #     print(f'[Error] Skip conflict check for file {self.value} at {PathRecord.CURRENT_FILE}:{self.lineno} because it is not exist, .')
         # PathRecord.PAYLOAD_PATH_LIST.append(self)
 # 
-        res = self.value
+        res = self.value.replace('\n','')
 
         return res
 

@@ -18,4 +18,6 @@ $PRJ_ICDIR/sub2.v
 AAAQQQQqqq
 aaaa
 BBB
+BBB.vhd
+CCC.vhd    
 DDD

@@ -11,3 +11,4 @@ $PRJ_ICDIR/open_sub2.v
 `endif
 
 $PRJ_ICDIR/sub2.v
+-f $PRJ_ICDIR/test3.f

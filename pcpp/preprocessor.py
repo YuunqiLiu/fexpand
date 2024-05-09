@@ -20,7 +20,7 @@ from pcpp.evaluator import Evaluator
 from .path_yacc import pathparser
 from . import path_yacc
 from .path_record import *
-
+from . import fexpand_semantic_analyze
 
 def expand_path(x):
 
@@ -944,52 +944,69 @@ class Preprocessor(PreprocessorHooks):
                             # -f xxx.f  ->  "xxx.f"
                             ###########################################################################################
 
-                            current_file = PathRecord.CURRENT_FILE
-
                             ast = expand_path(args)
-                            include_path = ast.value
+                            res_tokens = fexpand_semantic_analyze.include_semantic_analyze(ast)
+                            #print(ast.lineno)
+                            #print(args[0].lineno)
+
+
+                            # include_path = ast.value
                         
-                            from ply.lex import LexToken
-                            res = LexToken()
-                            res.type    = 'CPP_PATH'
-                            res.lineno  = args[0].lineno
-                            res.lexpos  = 0
-                            res.value   = include_path.replace('\n','')
-                            res.file    = PathRecord.CURRENT_FILE
+                            # from ply.lex import LexToken
+                            # res = LexToken()
+                            # res.type    = 'CPP_PATH'
+                            # res.lineno  = args[0].lineno
+                            # res.lexpos  = 0
+                            # res.value   = include_path.replace('\n','')
+                            # res.file    = PathRecord.CURRENT_FILE
 
-                            if os.path.exists(include_path):
-                                if PathRecord.check_include_path_duplicate(res):
 
-                                    res_tokens = []
-                                else:
-                                    print(f'[Info] Include path \"{res.value}\" at {PathRecord.CURRENT_FILE}:{res.lineno}.')
-                                    
-                                    # record res in INCLUDE_PATH_LIST
-                                    new_res = copy.copy(res)
-                                    PathRecord.INCLUDE_PATH_LIST.append(new_res)
+                            # if os.path.exists(include_path):
+                            #     if PathRecord.check_include_path_duplicate(res):
 
-                                    # update dummy token 
-                                    res.type = self.t_STRING
-                                    res.value = f'\"{res.value}\"'
+                            #         res_tokens = []
+                            #     else:
+                            #         print(f'[Info] Include path \"{res.value}\" at {PathRecord.CURRENT_FILE}:{res.lineno}.')
+                            #         
+                            #         # record res in INCLUDE_PATH_LIST
+                            #         new_res = copy.copy(res)
+                            #         PathRecord.INCLUDE_PATH_LIST.append(new_res)
 
-                                    res_tokens = [res]
+                            #         # update dummy token 
+                            #         res.type = self.t_STRING
+                            #         print(self.t_STRING)
+                            #         print(type(self.t_STRING))
+                            #         res.value = f'\"{res.value}\"'
 
-                            else:
-                                print(f'[Error] Skip Path {res.value} at {PathRecord.CURRENT_FILE}:{res.lineno} because it is not exist.')
+                            #         res_tokens = [res]
 
-                                res_tokens = []
+                            # else:
+                            #     print(f'[Error] Skip include path {res.value} at {PathRecord.CURRENT_FILE}:{res.lineno} because it is not exist.')
+
+                            #     res_tokens = []
 
 
 
                             ############################################################################################
-                            
+                            from . import fexpand_file_tree
+                            current_file  = PathRecord.CURRENT_FILE
+                            current_fnode = fexpand_file_tree.CURRENT_FILE_NODE
 
-                            for tok in self.include(res_tokens, x):
+                            if res_tokens is not None:
+                                new_ftree_node = fexpand_file_tree.FileTreeNode('?',res_tokens.value.replace('"',''))
+                                fexpand_file_tree.CURRENT_FILE_NODE.son_list.append(new_ftree_node)
+                                fexpand_file_tree.CURRENT_FILE_NODE = new_ftree_node
+
+                            
+                            new_res_tokens = [] if res_tokens is None else [res_tokens]
+                            for tok in self.include(new_res_tokens, x):
                                 yield tok
 
                             
                             ## hack after include done. ################################################################
+                            
                             PathRecord.CURRENT_FILE = current_file 
+                            fexpand_file_tree.CURRENT_FILE_NODE = current_fnode
                             ############################################################################################
 
                             if oldfile is not None:
@@ -1164,8 +1181,6 @@ class Preprocessor(PreprocessorHooks):
                     at_front_of_file = False
                 
                 # Normal text
-                #print(x)
-
                 ###########################################
                 # a hack.
                 ###########################################
@@ -1173,43 +1188,34 @@ class Preprocessor(PreprocessorHooks):
                 if enable:
 
                     ## hack here.
+                    #val = re.sub('\s+',' ',ast.value)
+                    #tmp = PathRecord.check_payload_path_duplicate(ast)
+                    # val.replace('\n','') 
+                    #if _tmp.value.isspace():
+                    #    _tmp.value = ""
+                    #########################################################################
                     ast = expand_path(x)
-                    val = re.sub('\s+',' ',ast.value)
+                    x = fexpand_semantic_analyze.payload_semantic_analyze(ast)
 
-                    tmp = PathRecord.check_payload_path_duplicate(ast)
-
-                    if val.isspace():
-                        pass
-                    elif tmp:
-                        val = ""
-                    else:
-                        PathRecord.PAYLOAD_PATH_LIST.append(ast)
-                        #print('??????????????????????????')
-                        #print(ast)
-                        #for i in ast.son_list:
-                        #    print(i.value)
-                        val = ast.get_legal_value()
+                    # if ast.value.isspace():
+                    #     val = ""
+                    # elif PathRecord.check_payload_path_duplicate(ast):
+                    #     val = ""
+                    # else:
+                    #     PathRecord.PAYLOAD_PATH_LIST.append(ast)
+                    #     val = ast.get_legal_value().replace('\n','')
 
 
-                    # create a dummy token to adapt to init pcpp.
-                    from ply.lex import LexToken
-                    _tmp = LexToken()
-                    _tmp.type    = 'CPP_PATH'
-                    _tmp.lineno  = x[0].lineno
-                    _tmp.lexpos  = 0
-                    _tmp.value   = val.replace('\n','') 
-                    if _tmp.value.isspace():
-                        _tmp.value = ""
-                    _tmp.file    = PathRecord.CURRENT_FILE
-                    #print('---',res.value)
-                    # update x to adapt to init pcpp.
-
-
-                    #x = [e for e in x if e.value != '\n']
-                    #print('----')
-                    #print(x)
-                    x = [_tmp]
-                    #print(x)
+                    # # create a dummy token to adapt to init pcpp.
+                    # from ply.lex import LexToken
+                    # _tmp = LexToken()
+                    # _tmp.type    = 'CPP_PATH'
+                    # _tmp.lineno  = x[0].lineno
+                    # _tmp.lexpos  = 0
+                    # _tmp.value   = val 
+                    # _tmp.file    = PathRecord.CURRENT_FILE
+                    # # update x to adapt to init pcpp.
+                    # x = [_tmp]
 
                     ##########################################################################
 

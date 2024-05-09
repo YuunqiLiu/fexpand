@@ -18,3 +18,4 @@
 -f $PRJ_ICDIR/fexpand_test/test2/sub2.f
 
 res
+FFFFFFFFFFFFFFFFFFFFFFFF
